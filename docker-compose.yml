@@ -1,0 +1,13 @@
+services:
+  sentiment-api:
+    image: sentiment-api
+    container_name: sentiment_api
+    ports:
+      - "8000:8000"
+    environment:
+      HF_HOME: /cache/huggingface
+    volumes:
+      - ./sentiment_api/hf_cache:/cache/huggingface
+
+volumes:
+  hf_cache:
