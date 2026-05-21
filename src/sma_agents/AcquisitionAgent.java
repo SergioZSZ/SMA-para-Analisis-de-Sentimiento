@@ -161,7 +161,7 @@ public class AcquisitionAgent extends Agent{
                     String commenter = comment.getSnippet().getTopLevelComment().getSnippet().getAuthorDisplayName();
                     String commentText = comment.getSnippet().getTopLevelComment().getSnippet().getTextDisplay();
 
-                    String uniqueID = response.title() + "_" + commenter;
+                    String uniqueID = response.title() + "_" + commenter + "_" + commentText;
 
                     if(processedComments.contains(uniqueID))
                         continue;
