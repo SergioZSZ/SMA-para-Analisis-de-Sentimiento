@@ -161,7 +161,7 @@ public class AcquisitionAgent extends Agent{
                     String commenter = comment.getSnippet().getTopLevelComment().getSnippet().getAuthorDisplayName();
                     String commentText = comment.getSnippet().getTopLevelComment().getSnippet().getTextDisplay();
 
-                    String uniqueID = response.title() + "_" + commenter + "_" + commentText;
+                    String uniqueID = response.title() + "_" + commenter;
 
                     if(processedComments.contains(uniqueID))
                         continue;
@@ -223,9 +223,9 @@ public class AcquisitionAgent extends Agent{
     /*********************************** Behaviours ***********************************/
 
 
-    OneShotBehaviour checkBehaviour = new OneShotBehaviour(this) {
+    TickerBehaviour checkBehaviour = new TickerBehaviour(this,5000) {
         @Override
-        public void action() {
+        public void onTick() {
             checkNewComments();
         }
     };
