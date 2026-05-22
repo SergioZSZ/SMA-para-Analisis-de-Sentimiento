@@ -15,11 +15,11 @@ import java.util.List;
 
 public class YoutubeCommentsAPI {
   private static final String APPLICATION_NAME = "APP";
-  private static final String API_KEY = "AIzaSyDnFtOlLiRubZb6E6c1f5w0cAB-iRK29UM";
+  private static final String API_KEY = System.getenv("API_KEY");
 
-  public static YoutubeResponse getComments(String videoID, int maxComments) {
-    if(maxComments == -1)
-      maxComments = Integer.MAX_VALUE;
+  public static YoutubeResponse getComments(String videoID) {
+
+      int maxComments = Integer.MAX_VALUE;
 
     try {
       YouTube youTubeService = new YouTube.Builder(

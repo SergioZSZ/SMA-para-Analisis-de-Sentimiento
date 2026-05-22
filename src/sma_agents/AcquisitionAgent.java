@@ -150,12 +150,10 @@ public class AcquisitionAgent extends Agent{
                     continue;
                 }
 
-                // separamos cada parte del csv para tener el texto por un lado y generar un id unico
-                String[] parts = line.split(";", 2);
-                String postId = parts[0].trim();
-                String maxComments = parts[1].trim();
+                // sacamos id del video (que es la línea del archivo)
+                String idvideo = line;
 
-                YoutubeResponse response = YoutubeCommentsAPI.getComments(postId, Integer.parseInt(maxComments));
+                YoutubeResponse response = YoutubeCommentsAPI.getComments(idvideo);
 
                 for (CommentThread comment : response.comments()) {
                     String commenter = comment.getSnippet().getTopLevelComment().getSnippet().getAuthorDisplayName();

@@ -10,7 +10,7 @@ El sistema está compuesto por agentes que se comunican mediante mensajes ACL y 
 
 El objetivo principal del proyecto es desarrollar un sistema multiagente capaz de:
 
-- Recibir o generar comentarios de texto.
+- Monitorizar los videos declarados en `data/newComments.csv`.
 - Enviar dichos comentarios a un agente especializado en análisis de sentimiento.
 - Clasificar cada comentario como positivo, negativo o neutral.
 - Enviar los resultados a un agente de visualización.
@@ -22,33 +22,43 @@ La arquitectura busca demostrar el uso de agentes autónomos, comunicación medi
 
 ## Arquitectura general
 
-El flujo principal del sistema es el siguiente:
+*Crear un diagrama de flujo de la arquitectura*
 
-```text
-AcquisitionAgent
-        |
-        | ACLMessage - new-comment
-        v
-SentimentAgent
-        |
-        | HTTP POST
-        v
-FastAPI Sentiment API (robertuito)
-        |
-        | JSON { tipo, score }
-        v
-SentimentAgent
-        |
-        | ACLMessage - sentiment-result
-        v
-VisualizationAgent
-```
 ---
 ## Componentes principales
--   AcquisitionAgent: agente encargado de obtener o generar comentarios.
--   SentimentAgent: agente encargado de recibir comentarios y solicitar su clasificación a la API Python.
--   Sentiment API: servicio FastAPI que utiliza el modelo 'robertuito' (https://github.com/pysentimiento/pysentimiento) para clasificar sentimiento de texto en español.
--   VisualizationAgent: agente encargado de mostrar o procesar los resultados obtenidos.
+### AcquisitionAgent
+Servicio ofrecido: "acquire comments"
+Agente/s encargado/s de obtener los comentarios de los vídeos declarados en el documento csv. 
+Estos agentes contienen dos comportamientos:
+#### checkBehaviour(TickBehaviour)
+Accede a la API de youtube para extraer los comentarios cada 5 segundos. Por cada vídeo que se monitorice escala el 
+sistema generando un nuevo agente de adquisición.
+Tras guardar un identificador único por cada comentario se busca desde el DF a un agente que ofrezca el servicio 
+"sentiment process" y se le envía un mensaje con performativa ``REQUEST`` con el texto del comentario + id para 
+su procesamiento.
+En caso de no encontrar en el DF ningún agente con dicho servicio, el AcquisitionAgent levanta por su cuenta un 
+SentimentAgent.
+#### errorBehaviour(CycleBehaviour)
+Espera a recibir mensajes con performativas ``INFORM`` para obtener información sobre si hubo errores o 
+no en el procesamiento del agente de sentimiento. Actualmente, en caso Error se intenta volver a procesar dicho comentario.
+
+### SentimentAgent
+Servicio ofrecido: sentiment process"
+Agente encargado de la clasificación de textos como positivos o negativos. Tiene dos comportamientos:
+#### processBehaviour(CycleBehaviour)
+Está constantemente esperando a recibir mensajes con performativa ``REQUEST``. De ellos obtiene los
+comentarios enviados por los AcquisitionAgent y le hace una petición http a una API local propia
+(sentiment_api) desarrollada con FastAPI que utiliza el modelo 'robertuito' 
+(https://github.com/pysentimiento/pysentimiento) para clasificar sentimiento de texto en español.
+En caso de no estar la API levantada, el propio Agente levanta la API y espera a que esté ejecutada
+para enviarle de nuevo el comentario para procesarlo.
+Por último, busca en el DF agentes registrados con el servicio "visualization-agent" para enviarle
+los resultados obtenidos, ID del vídeo, vídeo al que pertenece el comentario para añadir los campos
+a la interfaz de visualización.
+
+
+### VisualizationAgent
+Agente encargado de mostrar o procesar los resultados obtenidos.
 
 ---
 
@@ -56,8 +66,7 @@ VisualizationAgent
 
 - Java JDK 17 o superior
 - IntelliJ IDEA 
-- Librería java Gson (incluida en `/lib`,debe estar añadida al classpath del módulo Java en IntelliJ)
-- Librería java JADE (incluida en `/lib`,debe estar añadida al classpath del módulo Java en IntelliJ)
+- Cada librería de la carpeta ``/lib``. Todas deben estar añadidas como librerías del proyecto
 - Docker version 29.0.1
 - Docker Compose version v2.40.3-desktop.1
 
@@ -66,12 +75,25 @@ VisualizationAgent
 2. Añadir las librerías encontradas en `/lib` al proyecto (File > Project Structure > Modules > Dependencies > + > JARs or Directories)
 3. Construir imagen docker `sentiment-api` desde el directorio `/sentiment_api`
     Mandato: `docker build -t sentiment-api .`
+4. Generar un archivo ``.env`` en el directorio raíz del proyecto
+
+
+4. Obtener el token api de youtube. Para ello se debe:
+    1. Acceder a cloud.google.com con tu cuenta de google
+    2. Acceder a la consola y en el menú desplegable de la izquierda, selecciona APIs y servicios/biblioteca
+    3. En el buscador, busca ``youtube data api v3``, seleciónala y habilítala.
+    4. Vuelve al menú desplegable, selecciona APIs y servicios/Credenciales y pulsa ``crear credenciales``
+    5. Adjudícale el nombre que consideres y selecciona la API que acabamos de habilitar
+    6. Pulsa crear. Te enseñará tu API key, cópiala en ``.env`` siguiendo el formato del ``.env.example`` 
 
 ## Ejecución
-1. Levantar la API con el docker compose (y esperar a que termine de levantarse)
-    Mandato: `docker compose up -d`
-    Puede comprobarse que esté en funcionamiento desde `http://localhost:8000/`
-2. Ejecutar los agentes JADE *posiblemente toque añadir aquí la configuracion de como hacerlo*
+Debido a las automatizaciones de levantamiento de agentes y de la sentiment-api, para ejecutar únicamente
+es necesario crear una configuración de ejecución con estos parámetros:
+- Main class: jade.Boot
+- Program Arguments: -gui "acquisition:sma_agents.AcquisitionAgent(data/commentsNew.csv)"
+- Working directory: el/directorio/raiz/del/proyecto (en principio ya por defecto)
+
+Posteriormente ejecutar esa configuración y se levanta el sistema.  Se pueden añadir nuevos vídeos al csv durante la ejecución.
 
 
 ## Declaración de uso de IA

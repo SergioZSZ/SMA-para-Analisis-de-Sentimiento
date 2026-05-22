@@ -71,11 +71,12 @@ public class SentimentAgent extends Agent {
             this.timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
         }
     }
+
     private String servicio = "sentiment process"; //servicio que proporciona el agente
 
     /*********************************** DF register ***********************************/
 
-    private void registerAgent(String servicio){
+    private void registerAgent(String servicio) {
         //descripcion del agente y su nombre (descriptor de servicios)
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(this.getAID());
@@ -86,14 +87,12 @@ public class SentimentAgent extends Agent {
         //añadimos al descriptor de servicios
         dfd.addServices(sd);
         //realizamos el registro del descriptor de servicios en el DF
-        try{
-            DFService.register(this,dfd);
-            System.out.println("El Agente :" + getLocalName()+ " fue registrado en el DF");
+        try {
+            DFService.register(this, dfd);
+            System.out.println("El Agente :" + getLocalName() + " fue registrado en el DF");
 
-        }
-        catch(FIPAException ex)
-        {
-            System.err.println("El Agente :" + getLocalName()+ " no ha podido registrar el servicio " + ex.getMessage());
+        } catch (FIPAException ex) {
+            System.err.println("El Agente :" + getLocalName() + " no ha podido registrar el servicio " + ex.getMessage());
             doDelete();
         }
     }
@@ -105,9 +104,9 @@ public class SentimentAgent extends Agent {
             ContainerController container = getContainerController();
 
             AgentController sentiment = container.createNewAgent(
-                "visualization-agent",
-                "sma_agents.VisualizationAgent",
-                new Object[]{}
+                    "visualization-agent",
+                    "sma_agents.VisualizationAgent",
+                    new Object[]{}
             );
 
             sentiment.start();
@@ -118,16 +117,16 @@ public class SentimentAgent extends Agent {
             System.err.println("[" + getLocalName() + "] No se pudo levantar VisualizationAgent: " + e.getMessage());
         }
     }
+
     /*********************************** Aux ***********************************/
 
     /*metodo para clasificar los comentarios*/
-
     private ClassifierOutput classifySentiment(String text) {
         try {
             return llamarApiSentiment(text);
 
         } catch (Exception e) {
-            apiUp=false;
+            apiUp = false;
             System.out.println("[" + getLocalName() + "] API no disponible. Intentando levantarla con Docker Compose...");
             System.out.println("[" + getLocalName() + "] Error original: " + e.getMessage());
 
@@ -142,7 +141,7 @@ public class SentimentAgent extends Agent {
 
             } catch (Exception retryException) {
                 String error = "Error llamando a sentiment API tras intentar levantarla: "
-                    + retryException.getMessage();
+                        + retryException.getMessage();
 
                 System.out.println("[" + getLocalName() + "] " + error);
 
@@ -155,17 +154,20 @@ public class SentimentAgent extends Agent {
             }
         }
     }
-    /** método para buscar agentes de visualización **/
+
+    /**
+     * método para buscar agentes de visualización
+     **/
     private AID buscaServicioVisualization() {
         DFAgentDescription template = new DFAgentDescription();
         String servicioVisualization = "visualization-agent";
 //Creamos un descriptor de servicios
-        ServiceDescription sd= new ServiceDescription();
+        ServiceDescription sd = new ServiceDescription();
         sd.setType(servicioVisualization); // mismo type con el que se registra los agentes d evisualizacion
         template.addServices(sd);
-        try{
+        try {
 //Consultamos al DF los servicios y los devuelve en el dfd
-            DFAgentDescription[] result = DFService.search(this,template);
+            DFAgentDescription[] result = DFService.search(this, template);
             if (result.length == 0) {
                 System.out.println("[" + getLocalName() + "] No se encontró ningún agente con servicio de visualización");
                 levantarVisualizationAgent();
@@ -181,10 +183,13 @@ public class SentimentAgent extends Agent {
             return null;
         }
     }
-    /** método para enviar los comentarios y sentimientos a visualización **/
+
+    /**
+     * método para enviar los comentarios y sentimientos a visualización
+     **/
 
     private void sendResultToVisualizationAgent(String postId, String commentId,
-                                                String text, String sentiment, double score){
+                                                String text, String sentiment, double score) {
         SentimentResult result = new SentimentResult(postId, commentId, text, sentiment, score);
 
         AID visualizeragent = buscaServicioVisualization();
@@ -201,7 +206,9 @@ public class SentimentAgent extends Agent {
     }
 
 
-    /** método para procesar los comentarios **/
+    /**
+     * método para procesar los comentarios
+     **/
     private void processCommentMessage(ACLMessage message) {
         String content = message.getContent();
         System.out.println("[" + getLocalName() + "] Comentario recibido: " + content);
@@ -228,18 +235,18 @@ public class SentimentAgent extends Agent {
 
         if (output == null) {
             sendErrorToAcquisitionAgent(
-                message,
-                postId,
-                commentId,
-                "La API devolvió una respuesta nula"
+                    message,
+                    postId,
+                    commentId,
+                    "La API devolvió una respuesta nula"
             );
             return;
         }
 
         if (output.tipo == null || output.tipo.startsWith("ERROR")) {
             String error = output.errorMessage != null
-                ? output.errorMessage
-                : "Error desconocido clasificando el comentario";
+                    ? output.errorMessage
+                    : "Error desconocido clasificando el comentario";
 
             sendErrorToAcquisitionAgent(message, postId, commentId, error);
             return;
@@ -254,7 +261,9 @@ public class SentimentAgent extends Agent {
         sendResultToVisualizationAgent(postId, commentId, text, output.tipo, output.score);
     }
 
-    /** método para enviar errores al AcquisitionAgent **/
+    /**
+     * método para enviar errores al AcquisitionAgent
+     **/
     private void sendErrorToAcquisitionAgent(ACLMessage originalMessage,
                                              String postId,
                                              String commentId,
@@ -275,16 +284,18 @@ public class SentimentAgent extends Agent {
         System.out.println("\n");
     }
 
-    /** método para levantar la API **/
+    /**
+     * método para levantar la API
+     **/
 
     private void levantarSentimentApi() {
         try {
             ProcessBuilder pb = new ProcessBuilder(
-                "docker",
-                "compose",
-                "up",
-                "-d",
-                "sentiment-api"
+                    "docker",
+                    "compose",
+                    "up",
+                    "-d",
+                    "sentiment-api"
             );
             // Ruta raíz del proyecto, donde está el docker-compose.yml
             pb.directory(java.nio.file.Path.of("").toAbsolutePath().toFile());
@@ -313,13 +324,12 @@ public class SentimentAgent extends Agent {
         String requestBody = gson.toJson(input);
 
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(sentimentApiUrl))
-            .version(HttpClient.Version.HTTP_1_1)
-            .timeout(Duration.ofSeconds(20))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-            .build();
-
+                .uri(URI.create(sentimentApiUrl))
+                .version(HttpClient.Version.HTTP_1_1)
+                .timeout(Duration.ofSeconds(20))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .build();
 
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -338,30 +348,31 @@ public class SentimentAgent extends Agent {
         return gson.fromJson(response.body(), ClassifierOutput.class);
     }
 
+    /******************************* Behaviours *************************/
+    CyclicBehaviour processBehaviour = new CyclicBehaviour(this) {
+        @Override
+        public void action() {
+            MessageTemplate newCommentTemplate = MessageTemplate.and(
+                    MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
+                    MessageTemplate.MatchConversationId(NEW_COMMENT_CONVERSATION_ID)
+            );
+            ACLMessage message = receive(newCommentTemplate);
+
+            if (message != null && message.getPerformative() == ACLMessage.REQUEST) {
+                processCommentMessage(message);
+            } else {
+                block();
+            }
+        }
+    };
+
     @Override
     protected void setup() {
 
         System.out.println("[" + getLocalName() + "] SentimentAgent iniciado");
 
         registerAgent(servicio);
-
-        MessageTemplate newCommentTemplate = MessageTemplate.and(
-            MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
-            MessageTemplate.MatchConversationId(NEW_COMMENT_CONVERSATION_ID)
-        );
-
-        addBehaviour(new CyclicBehaviour(this) {
-            @Override
-            public void action() {
-                ACLMessage message = receive(newCommentTemplate);
-
-                if (message != null && message.getPerformative()==ACLMessage.REQUEST) {
-                    processCommentMessage(message);
-                } else {
-                    block();
-                }
-            }
-        });
+        addBehaviour(processBehaviour);
     }
 
     //apaga la api al terminar de cualquier manera
