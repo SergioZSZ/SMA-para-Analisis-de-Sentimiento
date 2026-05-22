@@ -56,7 +56,7 @@ El `sentimentResponseBehaviour` espera respuestas del `SentimentAgent` con `conv
 En caso de error, el comentario se elimina del conjunto de comentarios procesados para permitir su reintento en un ciclo posterior.
 
 ### SentimentAgent
-Servicio ofrecido: `"sentiment process"`.
+Servicio ofrecido: `"sentiment process"`
 
 Agente encargado de clasificar textos como positivos, negativos o neutrales. Recibe mensajes ACL con performativa `REQUEST` y `conversationId` `"sentiment-analysis"` desde el `AcquisitionAgent`.
 
@@ -73,14 +73,13 @@ Finalmente, envía el resultado al `VisualizationAgent` mediante un mensaje ACL 
 
 
 ### VisualizationAgent
-Servicio ofrecido: `"visualization-agent"`.
-
+Servicio ofrecido: `"visualization-agent"`
 Agente encargado de mostrar los resultados de análisis de sentimiento en una interfaz gráfica Swing.
 Recibe mensajes ACL con performativa `INFORM` y `conversationId` `"sentiment-result"` desde el `SentimentAgent`. 
 El contenido del mensaje es un objeto serializado `SentimentResponse`, que contiene el identificador del 
 vídeo/publicación, el identificador del comentario, el texto, el sentimiento clasificado y la puntuación del modelo.
 El agente mantiene contadores globales y por publicación, además de una tabla de detalle para visualizar cada comentario procesado.
----
+
 
 ## Flujo de comunicación ACL
 
