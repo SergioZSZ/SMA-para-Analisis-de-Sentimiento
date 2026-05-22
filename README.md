@@ -22,7 +22,8 @@ Los agentes se comunican mediante mensajes ACL de JADE. El contenido de los mens
 
 ## Arquitectura general
 
-*Crear un diagrama de flujo de la arquitectura*
+![DIAGRAMA-FLUJO](/images/diagrama.png)
+
 
 ---
 ## Componentes principales
