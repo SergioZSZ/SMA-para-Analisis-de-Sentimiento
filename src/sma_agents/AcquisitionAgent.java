@@ -1,77 +1,87 @@
 package sma_agents;
 
 import com.google.api.services.youtube.model.CommentThread;
-import jade.core.Agent;
 import jade.core.AID;
-import jade.core.Service;
-import jade.core.behaviours.*;
+import jade.core.Agent;
+import jade.core.behaviours.CyclicBehaviour;
+import jade.core.behaviours.TickerBehaviour;
+import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.ServiceDescription;
+import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import youtube.YoutubeCommentsAPI;
-import youtube.YoutubeResponse;
-
-import jade.core.Agent;
-import jade.domain.FIPAException;
-import jade.domain.DFService;
-import jade.domain.FIPAAgentManagement.ServiceDescription;
-import jade.domain.FIPAAgentManagement.DFAgentDescription;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets; //
-import java.nio.file.*;  //para paths y metodos relacionados con leer archivos
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;   //listas de java
-import java.util.Set;
+import jade.lang.acl.UnreadableException;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
+import sma_messages.AgentError;
+import sma_messages.SentimentRequest;
+import sma_messages.SentimentResponse;
+import youtube.YoutubeCommentsAPI;
+import youtube.YoutubeResponse;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 
-public class AcquisitionAgent extends Agent{
+public class AcquisitionAgent extends Agent {
     /*********************************** variables globales ***********************************/
+
+    private static final String SENTIMENT_SERVICE_TYPE = "sentiment process";
+    private static final String SENTIMENT_ANALYSIS_CONVERSATION_ID = "sentiment-analysis";
+    private static final String MESSAGE_LANGUAGE = "java-serialization";
 
     private Path commentsFile; //archivo csv
     private final Set<String> processedComments = new HashSet<>(); //set de comentarios procesados
     private final String servicio = "acquire comments"; //servicio que proporciona el agente
+
     /*********************************** DF register y busqueda servicios ***********************************/
 
-    private void registerAgent(String servicio){
+    private void registerAgent(String servicio) {
         //descripcion del agente y su nombre (descriptor de servicios)
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(this.getAID());
+
         //el servicio que proporciona y su tipo para localizarlos por el
         ServiceDescription sd = new ServiceDescription();
         sd.setName(servicio);
         sd.setType(servicio);
+
         //añadimos al descriptor de servicios
         dfd.addServices(sd);
-        //realizamos el registro del descriptor de servicios en el DF
-        try{
-            DFService.register(this,dfd);
-            System.out.println("El Agente :" + getLocalName()+ " fue registrado en el DF");
 
-        }
-        catch(FIPAException ex)
-        {
-            System.err.println("El Agente :" + getLocalName()+ " no ha podido registrar el servicio " + ex.getMessage());
+        //realizamos el registro del descriptor de servicios en el DF
+        try {
+            DFService.register(this, dfd);
+            System.out.println("El Agente :" + getLocalName() + " fue registrado en el DF");
+
+        } catch (FIPAException ex) {
+            System.err.println("El Agente :" + getLocalName() + " no ha podido registrar el servicio " + ex.getMessage());
             doDelete();
         }
     }
 
 
-
-
+    /** método para buscar el agente que proporciona el servicio de sentimiento **/
     private AID buscaServicioSentiment() {
         DFAgentDescription template = new DFAgentDescription();
-        String servicioSentiment = "sentiment process";
-//Creamos un descriptor de servicios
-        ServiceDescription sd= new ServiceDescription();
-        sd.setType(servicioSentiment); // mismo type con el que se registra SentimentAgent
+
+        //Creamos un descriptor de servicios con el type que registra SentimentAgent
+        ServiceDescription sd = new ServiceDescription();
+        sd.setType(SENTIMENT_SERVICE_TYPE);
         template.addServices(sd);
-        try{
-//Consultamos al DF los servicios y los devuelve en el dfd
-            DFAgentDescription[] result = DFService.search(this,template);
+
+        try {
+            //Consultamos al DF los servicios que encajan con el descriptor
+            DFAgentDescription[] result = DFService.search(this, template);
+
             if (result.length == 0) {
                 System.out.println("[" + getLocalName() + "] No se encontró ningún agente con servicio sentiment process. levantando uno...");
                 levantarSentimentAgent();
@@ -111,40 +121,52 @@ public class AcquisitionAgent extends Agent{
     }
 
 
-
-
     /*********************************** Aux ***********************************/
 
+    /** método para crear un id único del comentario procesado **/
+    private String createUniqueCommentId(String postId, String commentId) {
+        return postId + "_" + commentId;
+    }
+
+
     /** método para realizar envio a sentiment **/
-    private void sendCommentToSentimentAgent(String postId, String commentId, String text){
+    private void sendCommentToSentimentAgent(String postId, String commentId, String text) {
         AID sentimentAID = this.buscaServicioSentiment();
+
         if (sentimentAID == null) {
             System.out.println("[" + getLocalName() + "] No se puede enviar el comentario porque no hay SentimentAgent disponible");
             return;
         }
 
-        ACLMessage message = new ACLMessage(ACLMessage.REQUEST);
+        try {
+            SentimentRequest request = new SentimentRequest(postId, commentId, text);
 
-        message.addReceiver(sentimentAID); //
-        message.setConversationId("new-comment"); //el tipo de mensaje que envía para que pueda filtrar
-        message.setContent(postId + ";" + commentId + ";" + text); //contenido del mensaje
+            ACLMessage message = new ACLMessage(ACLMessage.REQUEST);
+            message.addReceiver(sentimentAID);
+            message.setConversationId(SENTIMENT_ANALYSIS_CONVERSATION_ID);
+            message.setLanguage(MESSAGE_LANGUAGE);
+            message.setReplyWith("sentiment-request-" + commentId);
+            message.setContentObject(request);
 
-        send(message);
-        System.out.println("[" + getLocalName() + "] Comentario enviado a " + sentimentAID.getName());
-        System.out.println("\n");
+            send(message);
 
+            System.out.println("[" + getLocalName() + "] Comentario enviado a " + sentimentAID.getName());
+            System.out.println("\n");
 
+        } catch (IOException e) {
+            System.err.println("[" + getLocalName() + "] Error serializando mensaje: " + e.getMessage());
+        }
     }
 
 
     /** método para checkear por nuevos comentarios **/
-    private void checkNewComments(){
+    private void checkNewComments() {
         try {
             // guardamos todas las líneas del csv en una lista
             List<String> lines = Files.readAllLines(commentsFile, StandardCharsets.UTF_8);
 
             // y por cada una la normalizamos en minusculas y sin espacios, si está vacia o es la primera continuamos
-            for(String line : lines){
+            for (String line : lines) {
                 line = line.trim();
                 if (line.isEmpty() || line.startsWith("postId;")) {
                     continue;
@@ -156,16 +178,22 @@ public class AcquisitionAgent extends Agent{
                 YoutubeResponse response = YoutubeCommentsAPI.getComments(idvideo);
 
                 for (CommentThread comment : response.comments()) {
-                    String commenter = comment.getSnippet().getTopLevelComment().getSnippet().getAuthorDisplayName();
+                    String postId = response.title();
+                    String commentId = comment.getSnippet().getTopLevelComment().getId();
                     String commentText = comment.getSnippet().getTopLevelComment().getSnippet().getTextDisplay();
 
-                    String uniqueID = response.title() + "_" + commenter + "_" + commentText;
+                    if (commentId == null || commentId.isBlank()) {
+                        commentId = comment.getId();
+                    }
 
-                    if(processedComments.contains(uniqueID))
+                    String uniqueID = createUniqueCommentId(postId, commentId);
+
+                    if (processedComments.contains(uniqueID)) {
                         continue;
+                    }
 
                     processedComments.add(uniqueID);
-                    sendCommentToSentimentAgent(response.title(),commenter,commentText);
+                    sendCommentToSentimentAgent(postId, commentId, commentText);
                 }
             }
 
@@ -174,83 +202,132 @@ public class AcquisitionAgent extends Agent{
         }
     }
 
-    /** método para manejar errores recibidos desde sentimentAgent **/
+
+    /** método para manejar respuestas correctas recibidas desde SentimentAgent **/
+    private void handleSentimentOk(ACLMessage message) {
+        try {
+            SentimentResponse response = (SentimentResponse) message.getContentObject();
+
+            System.out.println("[" + getLocalName() + "] Informe recibido desde " + message.getSender().getLocalName());
+            System.out.println("    Publicacion: " + response.getPostId());
+            System.out.println("    Comentario: " + response.getCommentId());
+            System.out.println("    Sentimiento: " + response.getSentiment());
+            System.out.println("    Score: " + response.getScore());
+            System.out.println("\n");
+
+        } catch (UnreadableException | ClassCastException e) {
+            System.err.println("[" + getLocalName() + "] No se pudo leer la respuesta correcta de SentimentAgent: " + e.getMessage());
+        }
+    }
+
+
+    /** método para manejar errores recibidos desde SentimentAgent **/
     private void handleSentimentError(ACLMessage message) {
-        String content = message.getContent();
+        try {
+            AgentError error = (AgentError) message.getContentObject();
 
-        if (content == null || content.isBlank()) {
-            System.out.println("[" + getLocalName() + "] Error recibido sin contenido");
-            return;
+            String uniqueCommentId = createUniqueCommentId(error.getPostId(), error.getCommentId());
+            processedComments.remove(uniqueCommentId);
+
+            System.out.println("[" + getLocalName() + "] Error recibido desde " + message.getSender().getLocalName());
+            System.out.println("    Publicacion: " + error.getPostId());
+            System.out.println("    Comentario: " + error.getCommentId());
+            System.out.println("    Motivo: " + error.getReason());
+            System.out.println("    Comentario eliminado de procesados. Se reintentará en el próximo ciclo.");
+            System.out.println("\n");
+
+        } catch (UnreadableException | ClassCastException e) {
+            System.err.println("[" + getLocalName() + "] No se pudo leer el error de SentimentAgent: " + e.getMessage());
         }
+    }
 
-        /*
-         * Formato esperado:
-         * ERROR;postId;commentId;motivo
-         */
-        String[] parts = content.split(";", 4);
 
-        if (parts.length < 4) {
-            System.out.println("[" + getLocalName() + "] Mensaje de error con formato inválido:");
-            System.out.println("    " + content);
-            return;
+    /** método para manejar mensajes no entendidos por SentimentAgent **/
+    private void handleSentimentNotUnderstood(ACLMessage message) {
+        try {
+            AgentError error = (AgentError) message.getContentObject();
+
+            String uniqueCommentId = createUniqueCommentId(error.getPostId(), error.getCommentId());
+            processedComments.remove(uniqueCommentId);
+
+            System.out.println("[" + getLocalName() + "] SentimentAgent no entendió el mensaje enviado");
+            System.out.println("    Publicacion: " + error.getPostId());
+            System.out.println("    Comentario: " + error.getCommentId());
+            System.out.println("    Motivo: " + error.getReason());
+            System.out.println("    Comentario eliminado de procesados. Se reintentará en el próximo ciclo.");
+            System.out.println("\n");
+
+        } catch (UnreadableException | ClassCastException e) {
+            System.err.println("[" + getLocalName() + "] No se pudo leer el NOT_UNDERSTOOD de SentimentAgent: " + e.getMessage());
         }
-
-        String type = parts[0].trim();
-        String postId = parts[1].trim();
-        String commentId = parts[2].trim();
-        String reason = parts[3].trim();
-
-        if (!type.equalsIgnoreCase("ERROR")) {
-            System.out.println("[" + getLocalName() + "] INFORM recibido, pero no es un error:");
-            System.out.println("    " + content);
-            return;
-        }
-
-        String uniqueCommentId = postId + "_" + commentId;
-
-        processedComments.remove(uniqueCommentId);
-
-        System.out.println("[" + getLocalName() + "] Error recibido desde " + message.getSender().getLocalName());
-        System.out.println("    Publicacion: " + postId);
-        System.out.println("    Comentario: " + commentId);
-        System.out.println("    Motivo: " + reason);
-        System.out.println("    Comentario eliminado de procesados. Se reintentará en el próximo ciclo.");
-        System.out.println("\n");
     }
 
     /*********************************** Behaviours ***********************************/
 
-
-    TickerBehaviour checkBehaviour = new TickerBehaviour(this,5000) {
+    TickerBehaviour checkBehaviour = new TickerBehaviour(this, 5000) {
         @Override
         public void onTick() {
             checkNewComments();
         }
     };
-    CyclicBehaviour errorBehaviour = new CyclicBehaviour(this) {
+
+
+    CyclicBehaviour sentimentResponseBehaviour = new CyclicBehaviour(this) {
         @Override
         public void action() {
-            MessageTemplate template = MessageTemplate.and(
+            MessageTemplate performativeTemplate = MessageTemplate.or(
                     MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-                    MessageTemplate.MatchConversationId("sentiment-error")
+                    MessageTemplate.or(
+                            MessageTemplate.MatchPerformative(ACLMessage.FAILURE),
+                            MessageTemplate.MatchPerformative(ACLMessage.NOT_UNDERSTOOD)
+                    )
+            );
+
+            MessageTemplate template = MessageTemplate.and(
+                    performativeTemplate,
+                    MessageTemplate.MatchConversationId(SENTIMENT_ANALYSIS_CONVERSATION_ID)
             );
 
             ACLMessage message = receive(template);
 
-            if (message != null) {
-                handleSentimentError(message);
-            } else {
+            if (message == null) {
                 block();
+                return;
+            }
+
+            switch (message.getPerformative()) {
+                case ACLMessage.INFORM:
+                    handleSentimentOk(message);
+                    break;
+
+                case ACLMessage.FAILURE:
+                    handleSentimentError(message);
+                    break;
+
+                case ACLMessage.NOT_UNDERSTOOD:
+                    handleSentimentNotUnderstood(message);
+                    break;
+
+                default:
+                    System.out.println("[" + getLocalName() + "] Performativa no esperada desde SentimentAgent: " + message.getPerformative());
+                    break;
             }
         }
     };
 
     /*********************************** setup ***********************************/
 
-
+    @Override
     protected void setup() {
         Object[] args = getArguments();
-        String filePath = (String)args[0];
+
+        if (args == null || args.length == 0) {
+            System.err.println("[" + getLocalName() + "] No se ha indicado la ruta del fichero de comentarios");
+            doDelete();
+            return;
+        }
+
+        String filePath = (String) args[0];
         commentsFile = Paths.get(filePath);
 
         System.out.println("[" + getLocalName() + "] Agente de adquisicion iniciado");
@@ -261,7 +338,16 @@ public class AcquisitionAgent extends Agent{
         System.out.println("\n");
 
         addBehaviour(checkBehaviour);
-        addBehaviour(errorBehaviour);
+        addBehaviour(sentimentResponseBehaviour);
+    }
 
+
+    @Override
+    protected void takeDown() {
+        try {
+            DFService.deregister(this);
+        } catch (FIPAException e) {
+            System.err.println("[" + getLocalName() + "] Error desregistrando del DF: " + e.getMessage());
+        }
     }
 }
