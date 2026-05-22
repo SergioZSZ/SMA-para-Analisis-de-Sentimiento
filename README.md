@@ -27,9 +27,16 @@ Los agentes se comunican mediante mensajes ACL de JADE. El contenido de los mens
 
 ---
 ## Componentes principales
+### LaunchernAgent
+Sericio ofrecido: "launch-acc"
+Agente encargado de monitorizar el documento de vídeos para por cada uno adjudicarle un AcquisitionAgent.
+Contiene un comportamiento:
+#### monitorBehaviour(TickBehaviour)
+Cada 5 segundos monitoriza el archivo para lanzar un acquisitionAgent, dándole de argumento de creación el id del video adjudicado.
+
 ### AcquisitionAgent
 Servicio ofrecido: "acquire comments"
-Agente/s encargado/s de obtener los comentarios de los vídeos declarados en el documento csv. 
+Agente/s encargado/s de obtener los comentarios de los vídeos adjudicados por el launcherAgent.
 Estos agentes contienen dos comportamientos:
 #### checkBehaviour(TickBehaviour)
 Accede a la API de youtube para extraer los comentarios cada 5 segundos. Por cada vídeo que se monitorice escala el 
@@ -47,8 +54,8 @@ El `sentimentResponseBehaviour` espera respuestas del `SentimentAgent` con `conv
 - `NOT_UNDERSTOOD`: el `SentimentAgent` no pudo interpretar el objeto recibido.
 
 En caso de error, el comentario se elimina del conjunto de comentarios procesados para permitir su reintento en un ciclo posterior.
-### SentimentAgent
 
+### SentimentAgent
 Servicio ofrecido: `"sentiment process"`.
 
 Agente encargado de clasificar textos como positivos, negativos o neutrales. Recibe mensajes ACL con performativa `REQUEST` y `conversationId` `"sentiment-analysis"` desde el `AcquisitionAgent`.
@@ -66,7 +73,6 @@ Finalmente, envía el resultado al `VisualizationAgent` mediante un mensaje ACL 
 
 
 ### VisualizationAgent
-
 Servicio ofrecido: `"visualization-agent"`.
 
 Agente encargado de mostrar los resultados de análisis de sentimiento en una interfaz gráfica Swing.

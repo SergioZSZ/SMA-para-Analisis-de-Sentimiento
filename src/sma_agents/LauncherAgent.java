@@ -2,6 +2,10 @@ package sma_agents;
 
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
+import jade.domain.DFService;
+import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.ServiceDescription;
+import jade.domain.FIPAException;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
@@ -21,6 +25,31 @@ public class LauncherAgent extends Agent {
     private Path videosFile;
     private Set<String> monitoredVideos; // NUEVO: Set de videos que ya tienen agente
     private int agentCounter; // NUEVO: Contador para nombres únicos
+    /*********************************** DF register y busqueda servicios ***********************************/
+
+    private void registerAgent(String servicio) {
+        //descripcion del agente y su nombre (descriptor de servicios)
+        DFAgentDescription dfd = new DFAgentDescription();
+        dfd.setName(this.getAID());
+
+        //el servicio que proporciona y su tipo para localizarlos por el
+        ServiceDescription sd = new ServiceDescription();
+        sd.setName(servicio);
+        sd.setType(servicio);
+
+        //añadimos al descriptor de servicios
+        dfd.addServices(sd);
+
+        //realizamos el registro del descriptor de servicios en el DF
+        try {
+            DFService.register(this, dfd);
+            System.out.println("El Agente :" + getLocalName() + " fue registrado en el DF");
+
+        } catch (FIPAException ex) {
+            System.err.println("El Agente :" + getLocalName() + " no ha podido registrar el servicio " + ex.getMessage());
+            doDelete();
+        }
+    }
 
     /** Leer el archivo de IDs de videos **/
     private List<String> readVideoIds() {
@@ -127,7 +156,7 @@ public class LauncherAgent extends Agent {
     protected void setup() {
         monitoredVideos = new HashSet<>();
         agentCounter = 0;
-
+        registerAgent("launch-acc");
         System.out.println("[" + getLocalName() + "] LauncherAgent iniciado");
 
         // Obtener ruta del archivo de videos
