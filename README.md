@@ -90,8 +90,9 @@ Agente encargado de mostrar o procesar los resultados obtenidos.
 Debido a las automatizaciones de levantamiento de agentes y de la sentiment-api, para ejecutar únicamente
 es necesario crear una configuración de ejecución con estos parámetros:
 - Main class: jade.Boot
-- Program Arguments: -gui "acquisition:sma_agents.AcquisitionAgent(data/commentsNew.csv)"
+- Program Arguments: ``-gui "acquisition:sma_agents.AcquisitionAgent(data/commentsNew.csv)"``
 - Working directory: el/directorio/raiz/del/proyecto (en principio ya por defecto)
+- Environment variables: directorio/absoluto/al/.env
 
 Posteriormente ejecutar esa configuración y se levanta el sistema.  Se pueden añadir nuevos vídeos al csv durante la ejecución.
 
