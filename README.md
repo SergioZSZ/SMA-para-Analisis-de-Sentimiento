@@ -136,7 +136,7 @@ El sistema utiliza los siguientes intercambios entre agentes:
 Debido a las automatizaciones de levantamiento de agentes y de la sentiment-api, para ejecutar únicamente
 es necesario crear una configuración de ejecución con estos parámetros:
 - Main class: jade.Boot
-- Program Arguments: ``-gui "acquisition:sma_agents.AcquisitionAgent(data/id_videos.csv)"``
+- Program Arguments: ``-gui -agents "sentiment:sma_agents.SentimentAgent;visualizer:sma_agents.VisualizationAgent;launcher:sma_agents.LauncherAgent(data/id_videos.csv)"``
 - Working directory: el/directorio/raiz/del/proyecto (en principio ya por defecto)
 - Environment variables: directorio/absoluto/al/.env
 
