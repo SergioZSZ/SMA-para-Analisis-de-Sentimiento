@@ -6,13 +6,15 @@ public class SentimentResponse implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private final String postId;
+    private final String postTitle;
     private final String commentId;
     private final String text;
     private final String sentiment;
     private final double score;
 
-    public SentimentResponse(String postId, String commentId, String text, String sentiment, double score) {
+    public SentimentResponse(String postId, String postTitle,String commentId, String text, String sentiment, double score) {
         this.postId = postId;
+        this.postTitle = postTitle;
         this.commentId = commentId;
         this.text = text;
         this.sentiment = sentiment;
@@ -21,6 +23,10 @@ public class SentimentResponse implements Serializable {
 
     public String getPostId() {
         return postId;
+    }
+
+    public String getPostTitle() {
+        return postTitle;
     }
 
     public String getCommentId() {

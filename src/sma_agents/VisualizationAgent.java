@@ -67,6 +67,7 @@ public class VisualizationAgent extends Agent {
     // Estructura para almacenar los contadores y el modelo de tabla de CADA post
     private static class PostContainer {
         String postId;
+        String postTitle;
         int totalComments = 0;
         int posCount = 0;
         int negCount = 0;
@@ -75,8 +76,9 @@ public class VisualizationAgent extends Agent {
 
         DefaultTableModel detailTableModel; // Tabla exclusiva de este Post
 
-        PostContainer(String postId) {
+        PostContainer(String postId, String postTitle) {
             this.postId = postId;
+            this.postTitle = postTitle;
         }
     }
 
@@ -86,7 +88,7 @@ public class VisualizationAgent extends Agent {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                frame = new JFrame("SMA - Analisis de Sentimiento por Post");
+                frame = new JFrame("SMA - Analisis de Sentimiento por Video");
                 frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
                 frame.setLayout(new BorderLayout());
 
@@ -110,7 +112,7 @@ public class VisualizationAgent extends Agent {
 
                 // --- PESTAÑA 1: RESUMEN GENERAL ---
                 postSummaryTableModel = new DefaultTableModel(
-                        new Object[]{"ID del Post", "Total Comentarios", "Positivos (POS)", "Negativos (NEG)", "Neutros (NEU)"},
+                        new Object[]{"Nombre del Video", "ID del Video", "Total Comentarios", "Positivos (POS)", "Negativos (NEG)", "Neutros (NEU)"},
                         0
                 ) {
                     @Override
@@ -128,8 +130,8 @@ public class VisualizationAgent extends Agent {
                 // --- PESTAÑA 2: DETALLES FILTRADOS (Contenedor Dinámico) ---
                 detailsTabbedPane = new JTabbedPane(JTabbedPane.LEFT); // Pestañas laterales para mejor orden
 
-                mainTabbedPane.addTab("Resumen de Posts", summaryPanel);
-                mainTabbedPane.addTab("Detalles por Post", detailsTabbedPane);
+                mainTabbedPane.addTab("Resumen de Videos", summaryPanel);
+                mainTabbedPane.addTab("Detalles por Video", detailsTabbedPane);
                 frame.add(mainTabbedPane, BorderLayout.CENTER);
 
                 // 3. Logs
@@ -169,7 +171,7 @@ public class VisualizationAgent extends Agent {
     /********************* Aux **********************/
 
     /** método para actualizar los contadores globales y por post **/
-    private void updateCounters(String postId, String sentiment) {
+    private void updateCounters(String postId, String postTitle, String sentiment) {
         total++;
 
         if ("POS".equalsIgnoreCase(sentiment)) pos++;
@@ -177,8 +179,13 @@ public class VisualizationAgent extends Agent {
         else if ("NEU".equalsIgnoreCase(sentiment)) neu++;
         else error++;
 
-        postMap.putIfAbsent(postId, new PostContainer(postId));
+        postMap.putIfAbsent(postId, new PostContainer(postId, postTitle));
         PostContainer container = postMap.get(postId);
+
+        // Si el contenedor ya existía pero todavía no tenía nombre de video, lo actualizamos
+        if (container.postTitle == null || container.postTitle.isBlank()) {
+            container.postTitle = postTitle;
+        }
 
         container.totalComments++;
         if ("POS".equalsIgnoreCase(sentiment)) container.posCount++;
@@ -249,10 +256,10 @@ public class VisualizationAgent extends Agent {
                     JPanel panelPost = new JPanel(new BorderLayout());
                     panelPost.add(new JScrollPane(postDetailTable), BorderLayout.CENTER);
 
-                    // Limitar el largo del título de la pestaña si el ID es muy largo
-                    String tabTitle = result.getPostId().length() > 20
-                            ? result.getPostId().substring(0, 17) + "..."
-                            : result.getPostId();
+                    // Limitar el largo del título de la pestaña si el nombre del video es muy largo
+                    String tabTitle = container.postTitle.length() > 25
+                            ? container.postTitle.substring(0, 22) + "..."
+                            : container.postTitle;
 
                     detailsTabbedPane.addTab(tabTitle, panelPost);
                 }
@@ -269,6 +276,7 @@ public class VisualizationAgent extends Agent {
                 // 3. Actualizar la fila en la tabla de Resumen General
                 if (postSummaryTableModel != null) {
                     Object[] rowSummary = new Object[]{
+                            container.postTitle,
                             container.postId,
                             container.totalComments,
                             container.posCount,
@@ -280,10 +288,12 @@ public class VisualizationAgent extends Agent {
                         container.rowIndex = postSummaryTableModel.getRowCount();
                         postSummaryTableModel.addRow(rowSummary);
                     } else {
-                        postSummaryTableModel.setValueAt(container.totalComments, container.rowIndex, 1);
-                        postSummaryTableModel.setValueAt(container.posCount, container.rowIndex, 2);
-                        postSummaryTableModel.setValueAt(container.negCount, container.rowIndex, 3);
-                        postSummaryTableModel.setValueAt(container.neuCount, container.rowIndex, 4);
+                        postSummaryTableModel.setValueAt(container.postTitle, container.rowIndex, 0);
+                        postSummaryTableModel.setValueAt(container.postId, container.rowIndex, 1);
+                        postSummaryTableModel.setValueAt(container.totalComments, container.rowIndex, 2);
+                        postSummaryTableModel.setValueAt(container.posCount, container.rowIndex, 3);
+                        postSummaryTableModel.setValueAt(container.negCount, container.rowIndex, 4);
+                        postSummaryTableModel.setValueAt(container.neuCount, container.rowIndex, 5);
                     }
                 }
 
@@ -291,6 +301,7 @@ public class VisualizationAgent extends Agent {
 
                 if (logArea != null) {
                     logArea.append("[" + timestamp + "] "
+                            + container.postTitle + " / "
                             + result.getPostId() + "/" + result.getCommentId()
                             + " -> " + result.getSentiment()
                             + " (score=" + String.format("%.4f", result.getScore()) + ")\n");
@@ -305,14 +316,18 @@ public class VisualizationAgent extends Agent {
         try {
             SentimentResponse result = (SentimentResponse) message.getContentObject();
 
-            if (result == null || result.getPostId() == null || result.getCommentId() == null || result.getSentiment() == null) {
+            if (result == null
+                    || result.getPostId() == null
+                    || result.getPostTitle() == null
+                    || result.getCommentId() == null
+                    || result.getSentiment() == null) {
                 registerMalformedMessage("Objeto SentimentResponse incompleto");
                 return;
             }
 
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
-            updateCounters(result.getPostId(), result.getSentiment());
+            updateCounters(result.getPostId(), result.getPostTitle(), result.getSentiment());
             updateUi(result, timestamp);
 
         } catch (UnreadableException | ClassCastException e) {

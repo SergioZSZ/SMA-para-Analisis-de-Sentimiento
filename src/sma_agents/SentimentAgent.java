@@ -88,26 +88,6 @@ public class SentimentAgent extends Agent {
         }
     }
 
-    /*********************************** levantamiento de visualization agent si no hay ***********************************/
-
-    private void levantarVisualizationAgent() {
-        try {
-            ContainerController container = getContainerController();
-
-            AgentController visualization = container.createNewAgent(
-                    "visualization-agent",
-                    "sma_agents.VisualizationAgent",
-                    new Object[]{}
-            );
-
-            visualization.start();
-
-            System.out.println("[" + getLocalName() + "] VisualizationAgent levantado dinámicamente");
-
-        } catch (StaleProxyException e) {
-            System.err.println("[" + getLocalName() + "] No se pudo levantar VisualizationAgent: " + e.getMessage());
-        }
-    }
 
     /*********************************** Aux ***********************************/
 
@@ -162,7 +142,6 @@ public class SentimentAgent extends Agent {
 
             if (result.length == 0) {
                 System.out.println("[" + getLocalName() + "] No se encontró ningún agente con servicio de visualización");
-                levantarVisualizationAgent();
                 doWait(3000);
                 return buscaServicioVisualization();
             }
@@ -292,6 +271,7 @@ public class SentimentAgent extends Agent {
         }
 
         String postId = request.getPostId();
+        String postTitle = request.getPostTitle();
         String commentId = request.getCommentId();
         String text = request.getText();
 
@@ -313,7 +293,7 @@ public class SentimentAgent extends Agent {
             return;
         }
 
-        SentimentResponse response = new SentimentResponse(postId, commentId, text, output.tipo, output.score);
+        SentimentResponse response = new SentimentResponse(postId, postTitle,commentId, text, output.tipo, output.score);
 
         System.out.println("[" + getLocalName() + "] Resultado:");
         System.out.println("    Publicacion: " + postId);

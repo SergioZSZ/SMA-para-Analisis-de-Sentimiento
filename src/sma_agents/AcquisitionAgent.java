@@ -22,12 +22,11 @@ import youtube.YoutubeCommentsAPI;
 import youtube.YoutubeResponse;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashSet;
-import java.util.List;
+
 import java.util.Set;
 
 
@@ -38,7 +37,8 @@ public class AcquisitionAgent extends Agent {
     private static final String SENTIMENT_ANALYSIS_CONVERSATION_ID = "sentiment-analysis";
     private static final String MESSAGE_LANGUAGE = "java-serialization";
 
-    private Path commentsFile; //archivo csv
+    private Path videosFile; //archivo csv con los ids de los videos
+    private String videoId; //id del video que monitoriza ESTE agente
     private final Set<String> processedComments = new HashSet<>(); //set de comentarios procesados
     private final String servicio = "acquire comments"; //servicio que proporciona el agente
 
@@ -82,12 +82,6 @@ public class AcquisitionAgent extends Agent {
             //Consultamos al DF los servicios que encajan con el descriptor
             DFAgentDescription[] result = DFService.search(this, template);
 
-            if (result.length == 0) {
-                System.out.println("[" + getLocalName() + "] No se encontró ningún agente con servicio sentiment process. levantando uno...");
-                levantarSentimentAgent();
-                doWait(3000);
-                return buscaServicioSentiment();
-            }
 
             AID sentimentAID = result[0].getName();
             System.out.println("[" + getLocalName() + "] Usando agente de sentimiento: " + sentimentAID.getLocalName());
@@ -96,27 +90,6 @@ public class AcquisitionAgent extends Agent {
         } catch (FIPAException ex) {
             System.err.println("[" + getLocalName() + "] Error buscando agente de sentimiento en el DF: " + ex.getMessage());
             return null;
-        }
-    }
-
-    /*********************************** levantamiento de sentiment agent si no hay ***********************************/
-
-    private void levantarSentimentAgent() {
-        try {
-            ContainerController container = getContainerController();
-
-            AgentController sentiment = container.createNewAgent(
-                    "sentiment",
-                    "sma_agents.SentimentAgent",
-                    new Object[]{}
-            );
-
-            sentiment.start();
-
-            System.out.println("[" + getLocalName() + "] SentimentAgent levantado dinámicamente");
-
-        } catch (StaleProxyException e) {
-            System.err.println("[" + getLocalName() + "] No se pudo levantar SentimentAgent: " + e.getMessage());
         }
     }
 
@@ -130,7 +103,7 @@ public class AcquisitionAgent extends Agent {
 
 
     /** método para realizar envio a sentiment **/
-    private void sendCommentToSentimentAgent(String postId, String commentId, String text) {
+    private void sendCommentToSentimentAgent(String postId,String postTitle,String commentId, String text) {
         AID sentimentAID = this.buscaServicioSentiment();
 
         if (sentimentAID == null) {
@@ -139,7 +112,7 @@ public class AcquisitionAgent extends Agent {
         }
 
         try {
-            SentimentRequest request = new SentimentRequest(postId, commentId, text);
+            SentimentRequest request = new SentimentRequest(postId,postTitle, commentId, text);
 
             ACLMessage message = new ACLMessage(ACLMessage.REQUEST);
             message.addReceiver(sentimentAID);
@@ -161,45 +134,33 @@ public class AcquisitionAgent extends Agent {
 
     /** método para checkear por nuevos comentarios **/
     private void checkNewComments() {
-        try {
-            // guardamos todas las líneas del csv en una lista
-            List<String> lines = Files.readAllLines(commentsFile, StandardCharsets.UTF_8);
+        YoutubeResponse response = YoutubeCommentsAPI.getComments(videoId);
 
-            // y por cada una la normalizamos en minusculas y sin espacios, si está vacia o es la primera continuamos
-            for (String line : lines) {
-                line = line.trim();
-                if (line.isEmpty() || line.startsWith("postId;")) {
-                    continue;
-                }
+        for (CommentThread comment : response.comments()) {
+            String postId = videoId;
+            String postTitle = response.title();
+            String commentId = comment.getSnippet().getTopLevelComment().getId();
+            String commentText = comment.getSnippet().getTopLevelComment().getSnippet().getTextDisplay();
 
-                // sacamos id del video (que es la línea del archivo)
-                String idvideo = line;
-
-                YoutubeResponse response = YoutubeCommentsAPI.getComments(idvideo);
-
-                for (CommentThread comment : response.comments()) {
-                    String postId = response.title();
-                    String commentId = comment.getSnippet().getTopLevelComment().getId();
-                    String commentText = comment.getSnippet().getTopLevelComment().getSnippet().getTextDisplay();
-
-                    if (commentId == null || commentId.isBlank()) {
-                        commentId = comment.getId();
-                    }
-
-                    String uniqueID = createUniqueCommentId(postId, commentId);
-
-                    if (processedComments.contains(uniqueID)) {
-                        continue;
-                    }
-
-                    processedComments.add(uniqueID);
-                    sendCommentToSentimentAgent(postId, commentId, commentText);
-                }
+            if (commentId == null || commentId.isBlank()) {
+                commentId = comment.getId();
             }
 
-        } catch (IOException e) {
-            System.out.println("[" + getLocalName() + "] Error leyendo fichero: " + e.getMessage());
+            String uniqueID = createUniqueCommentId(postId, commentId);
+
+            if (processedComments.contains(uniqueID)) {
+                continue;
+            }
+
+            processedComments.add(uniqueID);
+
+            System.out.println("[" + getLocalName() + "] Nuevo comentario detectado");
+            System.out.println("    Video: " + videoId);
+            System.out.println("    Comentario: " + commentId);
+
+            sendCommentToSentimentAgent(postId,postTitle, commentId, commentText);
         }
+
     }
 
 
@@ -321,21 +282,24 @@ public class AcquisitionAgent extends Agent {
     protected void setup() {
         Object[] args = getArguments();
 
-        if (args == null || args.length == 0) {
-            System.err.println("[" + getLocalName() + "] No se ha indicado la ruta del fichero de comentarios");
+        if (args == null || args.length < 2) {
+            System.err.println("[" + getLocalName() + "] No se han indicado los argumentos necesarios");
+            System.err.println("[" + getLocalName() + "] Uso esperado: AcquisitionAgent(ruta_csv, videoId)");
             doDelete();
             return;
         }
 
         String filePath = (String) args[0];
-        commentsFile = Paths.get(filePath);
+        videosFile = Paths.get(filePath);
+
+        videoId = (String) args[1];
 
         System.out.println("[" + getLocalName() + "] Agente de adquisicion iniciado");
+        System.out.println("[" + getLocalName() + "] Fichero de videos: " + videosFile.toAbsolutePath());
+        System.out.println("[" + getLocalName() + "] Video asignado: " + videoId);
+        System.out.println("\n");
 
         registerAgent(servicio);
-
-        System.out.println("[" + getLocalName() + "] Vigilando fichero: " + commentsFile.toAbsolutePath());
-        System.out.println("\n");
 
         addBehaviour(checkBehaviour);
         addBehaviour(sentimentResponseBehaviour);
