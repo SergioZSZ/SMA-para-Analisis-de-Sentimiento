@@ -144,7 +144,7 @@ Posteriormente ejecutar esa configuración y se levanta el sistema.  Se pueden a
 ## Next Steps
 - Se tiene pensado incorporar protocolo de mensajes con performativas entre launcherAgent y AcquisitionAgent para que el 
 segundo envíe mensaje tipo INFORM sobre que se lanzó correctamente
-
+- añadir que si se eliminan videos de data se eliminen tambien los agentes de adquisicion relacionados a ellos
 
 ## Declaración de uso de IA
 Durante el desarrollo del proyecto se ha utilizado IA como herramienta de apoyo para:
