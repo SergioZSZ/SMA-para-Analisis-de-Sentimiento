@@ -142,5 +142,13 @@ es necesario crear una configuración de ejecución con estos parámetros:
 Posteriormente ejecutar esa configuración y se levanta el sistema.  Se pueden añadir nuevos vídeos al csv durante la ejecución.
 
 
+
+
 ## Declaración de uso de IA
-Se usó IA generativa para buscar, entender y usar librerías java implementadas en el proyecto
+Durante el desarrollo del proyecto se ha utilizado IA como herramienta de apoyo para:
+- Comprender conceptos de JADE, ACL y DF.
+- Revisar errores.
+- Proponer mejoras de diseño en la arquitectura del sistema.
+- Documentar el desarrollo del sistema.
+
+El código final ha sido revisado, adaptado y probado por los miembros del grupo. La IA no se ha utilizado para sustituir la comprensión del sistema, sino como herramienta auxiliar de desarrollo y documentación.
