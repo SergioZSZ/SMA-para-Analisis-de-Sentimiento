@@ -141,7 +141,9 @@ es necesario crear una configuración de ejecución con estos parámetros:
 
 Posteriormente ejecutar esa configuración y se levanta el sistema.  Se pueden añadir nuevos vídeos al csv durante la ejecución.
 
-
+## Next Steps
+- Se tiene pensado incorporar protocolo de mensajes con performativas entre launcherAgent y AcquisitionAgent para que el 
+segundo envíe mensaje tipo INFORM sobre que se lanzó correctamente
 
 
 ## Declaración de uso de IA
