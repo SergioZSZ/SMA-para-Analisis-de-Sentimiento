@@ -18,7 +18,6 @@ El objetivo principal del proyecto es desarrollar un sistema multiagente capaz d
 
 La arquitectura busca demostrar el uso de agentes autónomos, comunicación mediante mensajes ACL y delegación de tareas inteligentes a servicios externos.
 Los agentes se comunican mediante mensajes ACL de JADE. El contenido de los mensajes entre agentes Java se envía como objetos serializables mediante `setContentObject()` y `getContentObject()`.
----
 
 ## Arquitectura general
 
